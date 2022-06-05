@@ -8,35 +8,47 @@ SCR_HEIGHT = 800
 WORD_XSPACE = 130
 WORD_YSPACE = 60
 
-# Colours for use
+# Colours for use (RGBA)
 green = (0, 255, 0)
 blue = (0, 0, 128)
 red = (255, 0 ,0)
 lightgrey = (220, 220, 220)
-lavender = (230, 230, 250)
+lightergrey = (244, 244, 244)
+lavender = (221,160,221)
 black = (0, 0, 0)
 
-_scr = pygame.display.set_mode([SCR_HEIGHT, SCR_WIDTH])
-pygame.display.set_caption('Typing Test')
+_scr = pygame.display.set_mode([SCR_HEIGHT, SCR_WIDTH]) # pygame function to set the display width and height
+pygame.display.set_caption('Typing Test') # pygame function to set the name of the window
 
-def showText():
-    global wordStatuses, wordList
+def getTextColour(status):
+    if status == WORD_STATUS.WORD_ACTIVE:
+        return lavender
+    elif status == WORD_STATUS.WORD_CORRECT:
+        return green
+    elif status == WORD_STATUS.WORD_WRONG:
+        return red
+    elif status == WORD_STATUS.WORD_UNKNOWN:
+        return black
+
+def iterateText():
+    # word count will always be a multiple of 25
+    global wordStatuses, wordList, currentWord, acceptInput
+    _sctr = currentWord // 25 
+    partialWordList = [wordList[i] for i in range(_sctr*25, 25+(_sctr*25))]
+    showText(partialWordList, _sctr)
+    
+
+def showText(list, sector):
+    global wordStatuses, currentWord
     spacerVariable = 0
-    for i in range(len(wordList)):
-        if (i == currentWord):
-            wordStatuses[i] = WORD_STATUS.WORD_ACTIVE
+    for i in range(25):       
+        if (i+(sector*25) == currentWord):
+            wordStatuses[i + (sector*25)] = WORD_STATUS.WORD_ACTIVE
         if (i % 5 == 0):
             spacerVariable += 1
-        colorInUse = (0, 0, 0)
-        if (wordStatuses[i] == WORD_STATUS.WORD_ACTIVE):
-            colorInUse = lavender
-        elif (wordStatuses[i] == WORD_STATUS.WORD_CORRECT):
-            colorInUse = green
-        elif wordStatuses[i] == WORD_STATUS.WORD_WRONG:
-            colorInUse = red
-        elif wordStatuses[i] == WORD_STATUS.WORD_UNKNOWN:
-            colorInUse = black
-        drawText(_scr, wordList[i] + "  ", SCR_WIDTH // 4 + WORD_XSPACE*(i % 5),  SCR_HEIGHT // 2 + (WORD_YSPACE * spacerVariable) - 350, colorInUse)
+        colorInUse = getTextColour(wordStatuses[i + (sector * 25)])
+        drawText(_scr, list[i] + "  ", SCR_WIDTH // 4 + WORD_XSPACE*(i % 5),  SCR_HEIGHT // 2 + (WORD_YSPACE * spacerVariable) - 350, colorInUse)
+
 
 def setLanguage(language):
     global randomWords
@@ -75,11 +87,12 @@ def drawText(screen, message, x, y, color, fsize=32, rectcolor=None):
     textRect = text.get_rect()
     textRect.center = (x, y)
     screen.blit(text, textRect)
+    return textRect
 
-def init():
-    global wordCount
-    pygame.init()
-    wordCount = 25
+def init(wc):
+    global wordCount, acceptInput
+    wordCount = wc
+    acceptInput = True
     setLanguage("english")
     setText()
 
@@ -89,10 +102,10 @@ def OnFirstKeyPress():
         startDate = datetime.datetime.now()
 
 def OnKeyPress(keys): 
-    global inputFieldStatus, displayScore, inputWordSlice, currentWord, inputFieldValue, correctKeys
+    global inputFieldStatus, displayScore, currentWord, inputFieldValue, correctKeys
     if (typingMode == 'wordcount'):
         if (currentWord < len(wordList)):
-            if keys in "abcdefghijklmnopqrstuvwxyzI":
+            if keys in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
                 if (inputFieldValue == '' and currentWord == 0):
                     OnFirstKeyPress()
                 inputFieldValue += keys
@@ -101,6 +114,7 @@ def OnKeyPress(keys):
                     inputFieldStatus = WORD_STATUS.WORD_CORRECT
                     if (inputFieldValue == wordList[currentWord] and currentWord == wordCount - 1):
                         displayScore = True
+                        return 
                 else:
                     inputFieldStatus = WORD_STATUS.WORD_WRONG
             elif keys == "Backspace":
@@ -118,8 +132,8 @@ def OnKeyPress(keys):
                     wordStatuses[currentWord] = WORD_STATUS.WORD_WRONG
                     if (currentWord == wordCount - 1):
                         displayScore = True
+                        return
                 inputFieldValue = ""
-                inputWordSlice = ""
                 currentWord += 1
                 
                 
@@ -139,39 +153,105 @@ def CalculateScore():
     wpm = floor(words / minutes)
     return f"WPM: {wpm}, ACC: {accuracy}%"
 
+def mouseOverPosition(rect, pos):
+    return rect.collidepoint(pos[0], pos[1])
+
+def getTextRect(msg, x, y, color, fsize=32, rectcolor=None):
+    font = pygame.font.Font('freesansbold.ttf', fsize)
+    text = font.render(msg, True, color, rectcolor)
+    textRect = text.get_rect()
+    textRect.center = (x, y)
+    return textRect
+
+def restartGame(wc=25):
+    global inputFieldValue, typingMode, currentWord, wordCount, randomWords, wordList, wordStatuses, correctKeys, startDate, timer, timerActive, punctuation, displayScore, acceptInput
+    inputFieldValue = ""
+    typingMode = 'wordcount'
+    currentWord = 0
+    wordCount = 0
+    randomWords = []
+    wordList = []
+    wordStatuses = {}
+    correctKeys = 0
+    startDate = 0
+    timer = 0
+    timerActive = False
+    punctuation = False
+    displayScore = False
+    acceptInput = True
+    init(wc)
+    run()
+
+
 def run():
-    global displayScore
+    global displayScore, acceptInput, wordCount
     running = True
     msg = ""  
     pygame.key.set_repeat(0, 1000)
     while running:  
+        twentyfiveRect = getTextRect("25", (SCR_WIDTH // 2) - 200, (SCR_HEIGHT // 2) - 350, black, 30)
+        fiftyRect = getTextRect("50", (SCR_WIDTH // 2) - 100, (SCR_HEIGHT // 2) -350, black, 30)
+        hundredRect = getTextRect("100", (SCR_WIDTH // 2), (SCR_HEIGHT // 2) - 350, black, 30)
+
+        redoButtonRect = getTextRect("Redo", (SCR_WIDTH // 2) + 350, (SCR_HEIGHT // 2) + 28, black, 30)
+        mousePos = pygame.mouse.get_pos()
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN:
+                pygame.quit()
+            elif event.type == pygame.KEYDOWN and acceptInput == True:               
                 if event.key == pygame.K_BACKSPACE:
                     OnKeyPress("Backspace")
                 elif event.key == pygame.K_SPACE:
                     OnKeyPress("Space")
                 else:
                     OnKeyPress(event.unicode)
-            elif event.type == pygame.KEYUP:
-                pass
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if mouseOverPosition(redoButtonRect, mousePos):
+                    restartGame(wordCount)
+                elif mouseOverPosition(twentyfiveRect, mousePos):
+                    restartGame(25)
+                elif mouseOverPosition(fiftyRect, mousePos):
+                    restartGame(50)
+                elif mouseOverPosition(hundredRect, mousePos):
+                    restartGame(100)
+
             
         if (displayScore):
             msg = CalculateScore()
+            acceptInput = False
             displayScore = False
 
         pygame.display.flip()
-        _scr.fill((255, 255, 255))
-        rectOverText = pygame.Rect((SCR_WIDTH // 2) - 250, (SCR_HEIGHT // 2) - 400, 700, 500)
-        pygame.draw.rect(_scr, lightgrey, rectOverText)
-        rect = drawInputField()
-        pygame.draw.rect(_scr, (255, 255, 255), rect)
-        drawText(_scr, msg, 450, 540, black, 48)
-        showText()
-        updateInputField(rect.centerx, rect.centery)
-        pygame.display.update()
+        _scr.fill((255, 255, 255)) # Fill the screen white
+        
+        # Underline the text
+        if wordCount == 25:
+            pygame.draw.rect(_scr, black, twentyfiveRect.copy().inflate(1, -25).move(0, 13))
+        elif wordCount == 50:
+            pygame.draw.rect(_scr, black, fiftyRect.copy().inflate(1, -25).move(0, 13))
+        else:
+            pygame.draw.rect(_scr, black, hundredRect.copy().inflate(1, -25).move(0, 13))
+        # Options to choose different word counts
+        drawText(_scr, "25", (SCR_WIDTH // 2) - 200, (SCR_HEIGHT // 2) - 350, black, 30)
+        drawText(_scr, "50", (SCR_WIDTH // 2) - 100, (SCR_HEIGHT // 2) -350, black, 30)
+        drawText(_scr, "100", (SCR_WIDTH // 2), (SCR_HEIGHT // 2) - 350, black, 30)
 
-init()
+        rectOverText = pygame.Rect((SCR_WIDTH // 2) - 250, (SCR_HEIGHT // 2) - 330, 700, 410) # Create a grey rectangle background behind the black text for contrast
+        pygame.draw.rect(_scr, lightgrey, rectOverText, border_radius=10) # Draw the rectangle
+
+        rect = drawInputField() # Use the function to return us a rectangle.
+        pygame.draw.rect(_scr, (255, 255, 255), rect, border_radius=10) # Draw the rectangle returned by the function.
+
+        redoButtonColor = lightergrey if (mouseOverPosition(redoButtonRect, mousePos)) else lightgrey
+        drawText(_scr, "Redo", (SCR_WIDTH // 2) + 350, (SCR_HEIGHT // 2) + 28, black, 30, redoButtonColor)
+
+        drawText(_scr, msg, 420, 540, black, 48) # Draw the score, if there is one.
+        iterateText() # Draw our text in the game
+        updateInputField(rect.centerx, rect.centery) # Update the text in the box when typing
+        pygame.display.update() # Pygame function to update the screen
+
+pygame.init()
+init(25)
 run()

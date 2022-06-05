@@ -25,8 +25,8 @@ timer = 0
 timerActive = False
 punctuation = False
 displayScore = False
+acceptInput = True
 
 # Word slice variables
-inputWordSlice = ""
 currentWordSlice = ""
 inputFieldStatus = WORD_STATUS.WORD_CORRECT
