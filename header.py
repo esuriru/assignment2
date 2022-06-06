@@ -21,9 +21,10 @@ wordStatuses = {}
 currentWord = 0
 correctKeys = 0
 startDate = 0
-timer = 0
-timerActive = False
-punctuation = False
+# Could be implemented in the future.
+# timer = 0 
+# timerActive = False
+# punctuation = False
 displayScore = False
 acceptInput = True
 
